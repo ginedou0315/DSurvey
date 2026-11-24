@@ -72,7 +72,7 @@ const DSurveyReports = (() => {
     link.remove();
     setTimeout(() => URL.revokeObjectURL(objectURL),30000);
   }
-  function pdfDocument(images,width,height) {
+  function pdfDocument(images,imageWidth,imageHeight,pageWidth,pageHeight) {
     const imageId = index => 3 + index * 3;
     const chunks = [];
     const offsets = [0];
@@ -93,10 +93,10 @@ const DSurveyReports = (() => {
     object(2,`<< /Type /Pages /Count ${images.length} /Kids [${images.map((_,i) => (imageId(i) + 2) + ' 0 R').join(' ')}] >>`);
     for (const [index,image] of images.entries()) {
       const id = imageId(index);
-      const commands = 'q 595 0 0 842 0 0 cm /PageImage Do Q\n';
-      object(id,`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.length} >>\nstream\n`,image,'\nendstream');
+      const commands = `q ${pageWidth} 0 0 ${pageHeight} 0 0 cm /PageImage Do Q\n`;
+      object(id,`<< /Type /XObject /Subtype /Image /Width ${imageWidth} /Height ${imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.length} >>\nstream\n`,image,'\nendstream');
       object(id + 1,`<< /Length ${commands.length} >>\nstream\n`,commands,'endstream');
-      object(id + 2,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /PageImage ${id} 0 R >> >> /Contents ${id + 1} 0 R >>`);
+      object(id + 2,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /PageImage ${id} 0 R >> >> /Contents ${id + 1} 0 R >>`);
     }
     const xref = size;
     append(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
@@ -130,22 +130,25 @@ const DSurveyReports = (() => {
   }
   async function pdf(title,responses,summary) {
     const canvas = document.createElement('canvas');
-    canvas.width = 1190;
-    canvas.height = 1684;
+    const pageWidth = 842;
+    const pageHeight = 595;
+    canvas.width = pageWidth * 2;
+    canvas.height = pageHeight * 2;
     const context = canvas.getContext('2d');
     context.scale(2,2);
     const images = [];
     const margin = 42;
+    const bottom = 552;
     let y;
     function startPage() {
       context.fillStyle = '#fff';
-      context.fillRect(0,0,595,842);
+      context.fillRect(0,0,pageWidth,pageHeight);
       context.font = 'bold 11px system-ui, sans-serif';
       context.fillStyle = '#4740be';
       context.fillText('DSurvey • Response report',margin,32);
       context.font = '10px system-ui, sans-serif';
-      context.fillText('Page ' + (images.length + 1),margin,815);
-      y = 62;
+      context.fillText('Page ' + (images.length + 1),margin,pageHeight - 14);
+      y = 54;
     }
     async function finishPage() {
       const image = await new Promise((resolve,reject) => canvas.toBlob(value =>
@@ -154,32 +157,115 @@ const DSurveyReports = (() => {
     }
     async function text(value,font = '12px system-ui, sans-serif',step = 17) {
       context.font = font;
-      for (const line of wrap(context,value,595 - margin * 2)) {
-        if (y > 782) { await finishPage(); startPage(); }
+      for (const line of wrap(context,value,pageWidth - margin * 2)) {
+        if (y > bottom) { await finishPage(); startPage(); }
         context.fillStyle = '#1b213a';
         context.font = font;
         context.fillText(line,margin,y);
         y += step;
       }
     }
+    async function table(label,rows) {
+      if (!rows.length) return;
+      const headers = rows[0].map(value => String(value));
+      const availableWidth = pageWidth - margin * 2;
+      const bodyFont = '8px system-ui, sans-serif';
+      const headerFont = 'bold 8px system-ui, sans-serif';
+      const lineHeight = 10;
+      const cellPadding = 4;
+      const maxChunkLines = 46;
+      context.font = bodyFont;
+      const widths = headers.map((header,column) => {
+        context.font = headerFont;
+        let widest = context.measureText(header).width;
+        context.font = bodyFont;
+        for (const row of rows.slice(1)) {
+          widest = Math.max(widest,context.measureText(String(row[column] ?? '')).width);
+        }
+        return Math.max(70,Math.min(190,widest + cellPadding * 2));
+      });
+      const groups = [[0]];
+      let groupWidth = widths[0];
+      for (let column = 1; column < headers.length; column++) {
+        if (groupWidth + widths[column] > availableWidth) {
+          groups.push([0]);
+          groupWidth = widths[0];
+        }
+        groups.at(-1).push(column);
+        groupWidth += widths[column];
+      }
+
+      function wrappedCells(row,columns) {
+        return columns.map((column,index) => {
+          context.font = row === headers ? headerFont : bodyFont;
+          return wrap(context,String(row[column] ?? ''),widths[column] - cellPadding * 2);
+        });
+      }
+      function drawRow(lines,columns,top,header = false,shade = false) {
+        const height = Math.max(1,...lines.map(cell => cell.length)) * lineHeight + cellPadding * 2;
+        const totalWidth = columns.reduce((total,column) => total + widths[column],0);
+        context.fillStyle = header ? '#e9e9f4' : shade ? '#f7f7fa' : '#fff';
+        context.fillRect(margin,top,totalWidth,height);
+        context.strokeStyle = '#c9cad4';
+        context.lineWidth = 0.5;
+        let x = margin;
+        for (const [index,column] of columns.entries()) {
+          context.strokeRect(x,top,widths[column],height);
+          context.fillStyle = '#1b213a';
+          context.font = header ? headerFont : bodyFont;
+          lines[index].forEach((line,lineIndex) =>
+            context.fillText(line,x + cellPadding,top + cellPadding + 7 + lineIndex * lineHeight));
+          x += widths[column];
+        }
+        return height;
+      }
+      async function tablePage(columns) {
+        const headerLines = wrappedCells(headers,columns);
+        const headerHeight = Math.max(1,...headerLines.map(cell => cell.length)) * lineHeight + cellPadding * 2;
+        if (y + 12 + headerHeight > bottom) { await finishPage(); startPage(); }
+        context.fillStyle = '#1b213a';
+        context.font = 'bold 13px system-ui, sans-serif';
+        const groupLabel = groups.length > 1
+          ? label + ' · columns ' + (columns[1] + 1) + '–' + columns.at(-1) + ' of ' + headers.length
+          : label;
+        context.fillText(groupLabel,margin,y);
+        y += 12;
+        y += drawRow(headerLines,columns,y,true);
+      }
+
+      for (const columns of groups) {
+        await tablePage(columns);
+        for (const [rowIndex,row] of rows.slice(1).entries()) {
+          const lines = wrappedCells(row,columns);
+          const lineCount = Math.max(1,...lines.map(cell => cell.length));
+          for (let offset = 0; offset < lineCount; offset += maxChunkLines) {
+            const chunk = lines.map((cell,columnIndex) => {
+              const content = cell.slice(offset,offset + maxChunkLines);
+              if (offset > 0 && columnIndex === 0 && content.length) {
+                content[0] = content[0] + ' (continued)';
+              }
+              return content;
+            });
+            const height = Math.min(maxChunkLines,lineCount - offset) * lineHeight + cellPadding * 2;
+            if (y + height > bottom) {
+              await finishPage();
+              startPage();
+              await tablePage(columns);
+            }
+            y += drawRow(chunk,columns,y,false,rowIndex % 2 === 1);
+          }
+        }
+        y += 16;
+      }
+    }
     startPage();
     await text(title,'bold 25px system-ui, sans-serif',32);
     await text('Summary','bold 16px system-ui, sans-serif',22);
-    for (const [question,measure,count] of summary.slice(1)) {
-      await text([question,measure,count].filter(value => value !== '').join(' · '));
-    }
+    await table('Summary',summary);
     y += 16;
-    await text('Responses','bold 16px system-ui, sans-serif',22);
-    for (const [index,row] of responses.slice(1).entries()) {
-      if (y > 735) { await finishPage(); startPage(); }
-      await text('Response ' + (index + 1) + ' · ' + row[0],'bold 12px system-ui, sans-serif');
-      for (let column = 1; column < row.length; column++) {
-        await text(responses[0][column] + ': ' + (row[column] || '—'));
-      }
-      y += 12;
-    }
+    await table('Responses',responses);
     await finishPage();
-    download(pdfDocument(images,canvas.width,canvas.height),title,'.pdf');
+    download(pdfDocument(images,canvas.width,canvas.height,pageWidth,pageHeight),title,'.pdf');
   }
   return {excel:(title,responses,summary) => download(workbook(responses,summary),title,'.xlsx'),pdf};
 })();
