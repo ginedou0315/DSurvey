@@ -1,0 +1,7 @@
+dist/
+*.sqlite*
+node_modules/
+wrangler.jsonc
+.wrangler/
+.dev.vars*
+.env*

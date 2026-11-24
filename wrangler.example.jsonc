@@ -1,0 +1,15 @@
+{
+  "name": "dsurvey",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2025-01-01",
+  "workers_dev": true,
+  "secrets": {"required": ["DSURVEY_CREATOR_KEY"]},
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dsurvey",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}
