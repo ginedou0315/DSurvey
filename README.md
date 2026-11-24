@@ -52,6 +52,10 @@ Use one Cloudflare Worker for the website and API and one Cloudflare D1 database
 
 If using the included ChatGPT Site project, its hosting configuration binds the database as `DB`. The Site's access setting controls who can reach the app. Anonymous respondents need a public entry point, whether through a public Site or through your own Cloudflare deployment.
 
+## Install on a phone
+
+Open the hosted HTTPS URL in Safari on iPhone, then use **Share → Add to Home Screen** and enable **Open as Web App** if shown. On Android, open it in Chrome and use **Menu → Add to Home screen → Install** if offered. The home-screen app uses the same hosted forms and needs an internet connection. If an owner shortcut does not carry over from your browser, open the saved management link from **Open an existing form**. Respondents can still use their ordinary browser.
+
 ## Data access and operational limits
 
 - Anyone who can reach the app and has the respondent link can read that form's questions and submit while it is open. The API requires a separate, randomly generated management key to edit the form or read or delete answers. It stores only a hash of each management key. Each form has its own key.

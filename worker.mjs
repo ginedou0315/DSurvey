@@ -59,11 +59,14 @@ export default {async fetch(req,env) {
   try {
     if(url.pathname==='/' && req.method==='GET') return new Response(PAGE.replace('<html lang="en">',env.DSURVEY_CREATOR_KEY ? '<html lang="en" data-creation-protected="true">' : '<html lang="en">'),{headers:{
       'Content-Type':'text/html; charset=utf-8','Referrer-Policy':'no-referrer',
-      'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+      'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; manifest-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
     }});
-    if(req.method==='GET' && Object.hasOwn(ASSETS,url.pathname)) return new Response(ASSETS[url.pathname],{headers:{
-      'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'
-    }});
+    if(req.method==='GET' && Object.hasOwn(ASSETS,url.pathname)) {
+      const asset=ASSETS[url.pathname];
+      return new Response(Uint8Array.from(atob(asset.base64),character=>character.charCodeAt(0)),{headers:{
+        'Content-Type':asset.type,'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'
+      }});
+    }
     if(!env.DB) fail('Response storage is unavailable.',503);
     if(req.method!=='GET' && req.headers.get('origin') && req.headers.get('origin')!==url.origin) fail('Invalid origin.',403);
     const db = env.DB;

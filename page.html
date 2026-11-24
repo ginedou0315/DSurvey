@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#f1e8fb">
+<link rel="manifest" href="/assets/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/assets/icon-180.png">
+<link rel="icon" href="/assets/icon-192.png" type="image/png">
 <title>DSurvey</title>
 <style>
 :root{color-scheme:light;--ink:#252036;--muted:#595267;--line:#e5deed;--accent:#6840a5;--purple-dark:#523184;--purple-line:#a987d0;--wash:#f7f3fc;--soft:#f1e8fb;--green:#276448;--mint:#e9f7ee;--mint-line:#bddcca;--intro:linear-gradient(120deg,#f0e6fb 0%,#faf7fd 50%,#e1f5e8 100%);font:16px/1.5 system-ui,sans-serif}
@@ -25,6 +29,19 @@
 .quick-add h2,.builder-edit h2{margin-bottom:0}
 .quick-add .row{margin-top:.5rem}
 .quick-add button{font-size:.9rem}
+header{padding-top:env(safe-area-inset-top)}
+.bar,main{max-width:calc(100% - max(1rem,env(safe-area-inset-left)) - max(1rem,env(safe-area-inset-right)))}
+main{padding-bottom:calc(3rem + env(safe-area-inset-bottom))}
+button,.button,select,input:not([type=checkbox]){min-height:44px}
+.check{min-height:44px}
+.table-wrap{max-width:100%}
+@media(max-width:42rem){
+  .bar{min-height:3.75rem}
+  .question .top button{min-height:44px}
+  .tabs button{flex:1}
+  .quick-add .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .narrow .primary,.builder-edit .primary{width:100%}
+}
 @media(max-width:53.99rem){
   .builder-preview.preview-visible{display:block}
   .builder-layout:has(.preview-visible) .builder-edit{display:none}
