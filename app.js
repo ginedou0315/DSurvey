@@ -11,6 +11,17 @@ const templates = {
   concerns: {title:'Share a concern',description:'Tell us what happened and how we can help.',fields:[['Concern','textarea'],['Email for follow-up','email'],['Additional notes','textarea']]},
   registration: {title:'Event registration',description:'Complete this form to register.',fields:[['Name','text'],['Email','email'],['Address','text'],['Notes','textarea']]}
 };
+const questionKits = [
+  {name:'Contact details',fields:[['Name','text',[],true],['Email','email',[],true]]},
+  {name:'Attendance',fields:[['Will you attend?','select',['Yes','No','Not sure'],true]]},
+  {name:'Address',fields:[['Address','text',[],false]]},
+  {name:'Notes',fields:[['Notes','textarea',[],false]]}
+];
+const starterCards = [
+  ['attendance','Event attendance','Ask who’s coming and get a response tally.'],
+  ['concerns','Concerns','Collect concerns with an optional email for follow-up.'],
+  ['registration','Registration','Collect names, contact details, and notes.']
+];
 let form;
 let draft;
 let ownerView = 'edit';
@@ -78,8 +89,6 @@ function dashboard() {
     el('div',{class:'top'},el('h3',{},item.title),el('span',{class:'badge'},item.open ? 'Published' : 'Closed')),
     el('div',{class:'row'},el('a',{class:'button',href:url(formId,item.secret)},'Manage form'),
       button('Remove shortcut',() => forget(formId)))));
-  const templatesSelect = el('select',{},Object.keys(templates).map((name,i) =>
-    el('option',{value:name},['Blank form','Event attendance','Concerns','Registration'][i])));
   const manageInput = el('input',{type:'url',required:true,placeholder:'Paste a management link'});
   const message = status();
   const open = el('form',{class:'stack',onsubmit:event => {
@@ -91,15 +100,15 @@ function dashboard() {
       location.href = url(params.get('form'),params.get('key'));
     } catch { notify(message,'Enter a management link from this DSurvey site.',true); }
   }},label('Management link',manageInput),el('div',{},el('button',{},'Open dashboard')),message);
-  view(el('section',{class:'panel intro'},el('h1',{},'Your forms'),
-    el('p',{class:'muted'},'Collect attendance, registrations, feedback, or anything else you need to track.'),
-    el('div',{class:'row'},button('Create form',() => startDraft('blank'),{class:'primary'}))),
+  view(el('section',{class:'panel intro home-intro'},el('h1',{},'What do you need to collect?'),
+    el('p',{class:'muted'},'Pick a starting point and make the questions your own.'),
+    el('div',{class:'row'},button('Start from scratch',() => startDraft('blank'),{class:'primary'}))),
+    el('section',{class:'starters','aria-label':'Form templates'},starterCards.map(([template,name,hint]) =>
+      el('button',{type:'button',class:'starter',onclick:() => startDraft(template)},
+        el('strong',{},name),el('span',{},hint)))),
     panel(el('h2',{},'My forms'),cards.length ? el('div',{class:'cards'},cards) :
       el('p',{class:'muted'},'Forms you manage on this device will appear here.')),
-    el('div',{class:'cols'},
-      panel(el('h2',{},'Start from a template'),el('div',{class:'stack'},label('Template',templatesSelect),
-        el('div',{},button('Use template',() => startDraft(templatesSelect.value))))),
-      panel(el('h2',{},'Open an existing form'),open)));
+    panel(el('h2',{},'Open an existing form'),open));
 }
 function startDraft(template) {
   const data = templates[template];
@@ -112,8 +121,31 @@ function startDraft(template) {
 function editor(current) {
   const questions = el('div',{class:'stack'});
   const message = status();
-  const title = el('input',{required:true,maxlength:120,value:current.title,oninput:event => {current.title = event.target.value;}});
-  const description = el('textarea',{maxlength:2000,oninput:event => {current.description = event.target.value;}},current.description);
+  const preview = el('div',{class:'preview-content'});
+  const previewSection = el('section',{class:'builder-preview',id:'builder-preview','aria-label':'Respondent preview'});
+  const togglePreview = button('Preview form',() => {
+    const visible = previewSection.classList.toggle('preview-visible');
+    togglePreview.textContent = visible ? 'Back to editing' : 'Preview form';
+    togglePreview.setAttribute('aria-expanded',String(visible));
+  },{class:'preview-toggle','aria-controls':'builder-preview','aria-expanded':'false'});
+  function updatePreview() {
+    const previewNote = status();
+    const controls = answerControls(current.fields);
+    preview.replaceChildren(formIntro(current,'Your form title'),
+      current.open ? panel(el('form',{class:'stack',onsubmit:event => {
+        event.preventDefault();
+        notify(previewNote,'That’s the end of the preview.');
+      }},answerLabels(controls),el('div',{},el('button',{class:'primary'},'Try submitting')),previewNote)) :
+        panel(el('p',{},'This form is no longer accepting responses.')));
+  }
+  const title = el('input',{required:true,maxlength:120,value:current.title,oninput:event => {
+    current.title = event.target.value;
+    updatePreview();
+  }});
+  const description = el('textarea',{maxlength:2000,oninput:event => {
+    current.description = event.target.value;
+    updatePreview();
+  }},current.description);
   const redraw = (focus = null, selector = 'input') => {
     questions.replaceChildren(...current.fields.map((question,index) => {
       const shift = delta => {
@@ -121,13 +153,17 @@ function editor(current) {
         [current.fields[index],current.fields[destination]] = [current.fields[destination],current.fields[index]];
         redraw(question.id,`button[data-move="${delta}"]:not([disabled])`);
       };
-      const options = el('textarea',{oninput:event => {question.options = event.target.value.split(/\r?\n/);}},question.options.join('\n'));
+      const options = el('textarea',{oninput:event => {
+        question.options = event.target.value.split(/\r?\n/);
+        updatePreview();
+      }},question.options.join('\n'));
       const optionLabel = label('Choices, one per line',options);
       optionLabel.hidden = question.type !== 'select';
       const type = el('select',{onchange:event => {
         question.type = event.target.value;
         options.required = question.type === 'select';
         optionLabel.hidden = !options.required;
+        updatePreview();
       }},Object.entries(fieldTypes).map(([value,name]) => el('option',{value,selected:value === question.type},name)));
       options.required = question.type === 'select';
       return el('div',{class:'question','data-field':question.id},
@@ -137,11 +173,20 @@ function editor(current) {
           button('Remove',() => {current.fields.splice(index,1); redraw(current.fields[Math.min(index,current.fields.length - 1)]?.id);},
             {class:'danger',disabled:current.fields.length === 1,'aria-label':'Remove question ' + (index + 1)}))),
         el('div',{class:'stack'},el('div',{class:'cols'},
-          label('Heading',el('input',{type:'text',value:question.label,required:true,maxlength:120,oninput:event => {question.label = event.target.value;}})),
+          label('Question',el('input',{type:'text',value:question.label,required:true,maxlength:120,oninput:event => {
+            question.label = event.target.value;
+            updateKits();
+            updatePreview();
+          }})),
           label('Answer type',type)),optionLabel,
-          el('label',{class:'check'},el('input',{type:'checkbox',checked:question.required,onchange:event => {question.required = event.target.checked;}}),'Required')));
+          el('label',{class:'check'},el('input',{type:'checkbox',checked:question.required,onchange:event => {
+            question.required = event.target.checked;
+            updatePreview();
+          }}),'Required')));
     }));
     add.disabled = current.fields.length >= 30;
+    updateKits();
+    updatePreview();
     if (focus) {
       const question = questions.querySelector(`[data-field="${CSS.escape(focus)}"]`);
       (question?.querySelector(selector) || question?.querySelector('input'))?.focus();
@@ -152,11 +197,26 @@ function editor(current) {
     current.fields.push(next);
     redraw(next.id);
   });
+  function missingQuestions(kit) {
+    const names = new Set(current.fields.map(question => question.label.trim().toLowerCase()));
+    return kit.fields.filter(([name]) => !names.has(name.toLowerCase()));
+  }
+  const kitButtons = questionKits.map(kit => button(kit.name,() => {
+    const added = missingQuestions(kit).map(args => field(...args));
+    current.fields.push(...added);
+    redraw(added[0]?.id);
+  }));
+  function updateKits() {
+    for (const [index,kit] of questionKits.entries()) {
+      const count = missingQuestions(kit).length;
+      kitButtons[index].disabled = !count || current.fields.length + count > 30;
+    }
+  }
   const creatorControl = !key && document.documentElement.dataset.creationProtected === 'true' ?
     el('input',{type:'password',required:true,autocomplete:'off'}) : null;
   redraw();
   const save = el('button',{class:'primary'},key ? 'Save changes' : 'Publish form');
-  return panel(el('form',{class:'stack',onsubmit:async event => {
+  const editing = panel(el('form',{class:'stack',onsubmit:async event => {
     event.preventDefault();
     const controls = Array.from(event.currentTarget.elements).filter(control => !control.disabled);
     controls.forEach(control => {control.disabled = true;});
@@ -175,10 +235,17 @@ function editor(current) {
     } catch (error) { notify(message,error.message,true); }
     finally { controls.forEach(control => {control.disabled = false;}); }
   }},label('Form title',title),label('Introduction or privacy notice',description),
+  el('section',{class:'quick-add','aria-label':'Quick add questions'},el('h2',{},'Quick add'),
+    el('div',{class:'row'},kitButtons)),
   el('h2',{},'Questions'),questions,el('div',{},add),
-  key ? el('label',{class:'check'},el('input',{type:'checkbox',checked:current.open,onchange:event => {current.open = event.target.checked;}}),'Accept responses') : null,
+  key ? el('label',{class:'check'},el('input',{type:'checkbox',checked:current.open,onchange:event => {
+    current.open = event.target.checked;
+    updatePreview();
+  }}),'Accept responses') : null,
   creatorControl ? label('Form creation key',creatorControl) : null,
   el('div',{class:'row'},save,key ? null : button('Cancel',dashboard)),message));
+  previewSection.append(el('h2',{},'Live preview'),el('p',{class:'muted'},'Try the form here. Preview answers are never saved.'),preview);
+  return el('div',{},togglePreview,el('div',{class:'builder-layout'},el('div',{class:'builder-edit'},editing),previewSection));
 }
 function linkBox(name, value, note) {
   const input = el('input',{readonly:true,value,onclick:event => event.target.select()});
@@ -294,20 +361,31 @@ function renderResponses(content) {
       el('span',{},'Page ' + (responsePage + 1) + ' of ' + totalPages),
       button('Next',() => {responsePage++; renderResponses(content);},{disabled:responsePage + 1 === totalPages})) : null));
 }
-function respondent() {
-  app.className = 'narrow';
-  const notice = status();
-  const controls = form.fields.map(question => {
+function formIntro(definition,fallback = '') {
+  return el('section',{class:'panel intro'},el('h1',{},definition.title.trim() || fallback),
+    definition.description ? el('p',{class:'muted'},definition.description) : null);
+}
+function answerControls(fields) {
+  return fields.map(question => {
     let control;
     if (question.type === 'textarea') control = el('textarea',{maxlength:4000});
     else if (question.type === 'select') control = el('select',{},el('option',{value:''},'Select an answer'),
-      ...question.options.map(option => el('option',{value:option},option)));
+      ...[...new Set(question.options.map(option => option.trim()).filter(Boolean))].slice(0,30)
+        .map(option => el('option',{value:option},option)));
     else control = el('input',{type:question.type,maxlength:4000,step:question.type === 'number' ? 'any' : null});
     control.required = question.required;
     return [question,control];
   });
+}
+function answerLabels(controls) {
+  return controls.map(([question,control]) => label((question.label.trim() || 'Untitled question') + (question.required ? ' *' : ''),control));
+}
+function respondent() {
+  app.className = 'narrow';
+  const notice = status();
+  const controls = answerControls(form.fields);
   const submit = el('button',{class:'primary'},'Submit response');
-  view(el('section',{class:'panel intro'},el('h1',{},form.title),form.description ? el('p',{class:'muted'},form.description) : null),
+  view(formIntro(form),
     form.open ? panel(el('form',{class:'stack',onsubmit:async event => {
       event.preventDefault();
       submit.disabled = true;
@@ -320,7 +398,7 @@ function respondent() {
         confirmation.focus();
       } catch (error) { notify(notice,error.message,true); }
       finally { submit.disabled = false; }
-    }},...controls.map(([question,control]) => label(question.label + (question.required ? ' *' : ''),control)),
+    }},answerLabels(controls),
     el('div',{},submit),notice)) : panel(el('p',{},'This form is no longer accepting responses.')));
 }
 async function init() {
