@@ -264,6 +264,42 @@ function linkBox(name, value, note) {
     }),
     name === 'Respondent link' ? el('a',{class:'button',href:value,target:'_blank',rel:'noopener'},'Open respondent view') : null));
 }
+function sharePanel(notice, pageRevision) {
+  const published = form.visibility === 'public';
+  const canShare = published || form.invite;
+  const ready = published && form.open;
+  const action = published ? 'Open for responses' : form.open ? 'Make public' : 'Make public and open';
+  const message = status();
+  const publish = button(action,async event => {
+    const control = event.currentTarget;
+    const previous = form;
+    control.disabled = true;
+    notify(message,'Updating sharing…');
+    try {
+      const saved = await api(endpoint + '/manage','PUT',{...previous,visibility:'public',open:true},true);
+      form = saved;
+      draft.revision = saved.revision;
+      draft.visibility = saved.visibility;
+      draft.open = saved.open;
+      draft.invite = saved.invite;
+      remember(id,key,saved);
+      if (pageRevision === viewRevision) owner('Public respondent link ready to share.');
+    } catch (error) {
+      notify(message,error.message,true);
+    } finally {
+      control.disabled = false;
+    }
+  },{class:'primary'});
+  return panel(el('h2',{},'Share your form'),
+    el('p',{class:'muted'},ready ? 'Anyone with the respondent link can submit without signing in.' :
+      'Make this form public and open to let anyone with the respondent link submit.'),
+    ready ? null : publish,
+    message,
+    canShare ? linkBox('Respondent link',url(id,undefined,form.invite),notice) : null,
+    form.invite ? el('p',{class:'muted'},'Your current respondent link is invite-only.') : null,
+    el('p',{class:'muted'},'Save the private management link somewhere secure. Anyone with it can edit the form and view its responses.'),
+    linkBox('Management link',url(id,key),notice));
+}
 function owner(message = '') {
   app.className = '';
   const pageRevision = ++viewRevision;
@@ -276,14 +312,7 @@ function owner(message = '') {
   view(el('div',{class:'top'},el('h1',{},form.title),el('span',{class:'badge'},form.open ? 'Published' : 'Closed')),
     el('p',{class:'muted lead'},'Form dashboard'),notice,tabs,content);
   if (ownerView === 'edit') content.append(editor(draft));
-  if (ownerView === 'share') content.append(panel(el('h2',{},'Share your form'),
-    el('p',{class:'muted'},form.open ? 'Send the respondent link to the people you want to hear from.' : 'This form is closed. Enable “Accept responses” in Build to reopen it.'),
-    form.visibility === 'public' || form.invite ?
-      linkBox('Respondent link',url(id,undefined,form.invite),notice) :
-      el('p',{class:'muted'},'This existing form is restricted. In Build, choose who can respond and save to create its respondent link.'),
-    form.invite ? el('p',{class:'muted'},'This is a private invite link. Send it only to the people you want to invite.') : null,
-    el('p',{class:'muted'},'Save the private management link somewhere secure. Anyone with it can edit the form and view its responses.'),
-    linkBox('Management link',url(id,key),notice)));
+  if (ownerView === 'share') content.append(sharePanel(notice,pageRevision));
   if (ownerView === 'responses') loadResponses(content,pageRevision);
 }
 async function loadResponses(content, revision) {
