@@ -3,6 +3,7 @@ const app = document.querySelector('#app');
 const route = new URLSearchParams(location.hash.slice(1));
 const id = route.get('form');
 const key = route.get('key');
+const invite = route.get('invite');
 const endpoint = id && '/api/forms/' + encodeURIComponent(id);
 const fieldTypes = {text:'Short text',textarea:'Long text',email:'Email',date:'Date',number:'Number',select:'Dropdown'};
 const templates = {
@@ -44,7 +45,8 @@ const label = (name, control) => el('label',{},name,control);
 const button = (name, action, attrs = {}) => el('button',{type:'button',onclick:action,...attrs},name);
 const panel = (...children) => el('section',{class:'panel'},...children);
 const status = () => el('p',{class:'status',role:'status','aria-live':'polite'});
-const url = (formId, secret) => location.origin + '/#' + new URLSearchParams(secret ? {form:formId,key:secret} : {form:formId});
+const url = (formId, secret, respondentInvite) => location.origin + '/#' + new URLSearchParams(
+  secret ? {form:formId,key:secret} : respondentInvite ? {form:formId,invite:respondentInvite} : {form:formId});
 const field = (name = '', type = 'text', options = [], required = false) => ({id:crypto.randomUUID(),label:name,type,options,required});
 const date = value => new Date(value).toLocaleString();
 const storageKey = 'dsurvey.owner-links';
@@ -74,6 +76,7 @@ async function api(path, method = 'GET', payload, owner = false) {
   const headers = {};
   if (payload !== undefined) headers['Content-Type'] = 'application/json';
   if (owner) headers.Authorization = 'Bearer ' + key;
+  else if (invite && /^[a-f0-9]{64}$/.test(invite)) headers['X-DSurvey-Invite'] = invite;
   const response = await fetch(path,{method,headers,body:payload === undefined ? undefined : JSON.stringify(payload)});
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'The request could not be completed.');
@@ -112,7 +115,7 @@ function dashboard() {
 }
 function startDraft(template) {
   const data = templates[template];
-  draft = {title:data.title,description:data.description,open:true,
+  draft = {title:data.title,description:data.description,open:true,visibility:'public',
     fields:data.fields.map(([name,type,options],i) => field(name,type,options,i === 0))};
   app.className = '';
   view(el('h1',{},'Create a form'),editor(draft));
@@ -214,6 +217,9 @@ function editor(current) {
   }
   const creatorControl = !key && document.documentElement.dataset.creationProtected === 'true' ?
     el('input',{type:'password',required:true,autocomplete:'off'}) : null;
+  const visibility = el('select',{onchange:event => {current.visibility = event.target.value;}},
+    el('option',{value:'public',selected:current.visibility === 'public'},'Anyone with the link'),
+    el('option',{value:'private',selected:current.visibility !== 'public'},'Private invite link'));
   redraw();
   const save = el('button',{class:'primary'},key ? 'Save changes' : 'Publish form');
   const editing = panel(el('form',{class:'stack',onsubmit:async event => {
@@ -238,6 +244,8 @@ function editor(current) {
   el('section',{class:'quick-add','aria-label':'Quick add questions'},el('h2',{},'Quick add'),
     el('div',{class:'row'},kitButtons)),
   el('h2',{},'Questions'),questions,el('div',{},add),
+  label('Who can respond?',visibility),
+  el('small',{},'A private invite link gives access to anyone it’s forwarded to.'),
   key ? el('label',{class:'check'},el('input',{type:'checkbox',checked:current.open,onchange:event => {
     current.open = event.target.checked;
     updatePreview();
@@ -270,7 +278,10 @@ function owner(message = '') {
   if (ownerView === 'edit') content.append(editor(draft));
   if (ownerView === 'share') content.append(panel(el('h2',{},'Share your form'),
     el('p',{class:'muted'},form.open ? 'Send the respondent link to the people you want to hear from.' : 'This form is closed. Enable “Accept responses” in Build to reopen it.'),
-    linkBox('Respondent link',url(id),notice),
+    form.visibility === 'public' || form.invite ?
+      linkBox('Respondent link',url(id,undefined,form.invite),notice) :
+      el('p',{class:'muted'},'This existing form is restricted. In Build, choose who can respond and save to create its respondent link.'),
+    form.invite ? el('p',{class:'muted'},'This is a private invite link. Send it only to the people you want to invite.') : null,
     el('p',{class:'muted'},'Save the private management link somewhere secure. Anyone with it can edit the form and view its responses.'),
     linkBox('Management link',url(id,key),notice)));
   if (ownerView === 'responses') loadResponses(content,pageRevision);
@@ -408,6 +419,7 @@ async function init() {
     if (key) {
       remember(id,key,form);
       draft = structuredClone(form);
+      draft.visibility ??= 'private';
       ownerView = 'share';
       owner();
     } else respondent();

@@ -14,7 +14,7 @@ Open [http://127.0.0.1:8787](http://127.0.0.1:8787). There are no packages to in
 
 1. Select **Create form** or use a template. Write the title and a short notice describing what you will collect, why, and how people can contact you.
 2. Use **Quick add** for contact details, attendance, address, or notes. Edit the labels, answer types, and required status as needed. Use **Up**, **Down**, and **Remove** to arrange the questions. Test your changes in the live preview or tap **Preview form** on a narrow screen. Preview answers are never saved.
-3. Select **Publish form**. In **Share**, send the **Respondent link** and store the **Management link** in a password manager. Open the respondent link in a private browser window to test it.
+3. New forms default to **Anyone with the link**. To restrict a form, choose **Private invite link** under **Who can respond?**. Select **Publish form**, then copy its **Respondent link** from **Share**. Store the separate **Management link** in a password manager. For existing forms, choose an access setting in **Build** and save before sharing.
 4. Use **Responses** for totals, answers per question, dropdown counts, and the response table. Download a workbook with **Responses** and **Summary** sheets or a paginated PDF with both. The PDF uses rendered pages and preserves characters supported by the device fonts. Its text is image-based.
 5. To stop collection, turn off **Accept responses** in **Build** and save. You can delete individual submissions from the response table. Removed questions remain in the response history and downloads. Create a new question when its meaning changes so historical answers stay under their original heading.
 
@@ -58,7 +58,7 @@ Open the hosted HTTPS URL in Safari on iPhone, then use **Share → Add to Home 
 
 ## Data access and operational limits
 
-- Anyone who can reach the app and has the respondent link can read that form's questions and submit while it is open. The API requires a separate, randomly generated management key to edit the form or read or delete answers. It stores only a hash of each management key. Each form has its own key.
+- Anyone with a public respondent link can read the form and submit while it is open. Private forms require the separate invite link for both viewing and submitting. An invite link can be forwarded. Switching to public and back to private issues a fresh invite link. The API requires a separate management key to edit the form or read or delete answers, and stores only a hash of each management key.
 - The owner link's secret is in the URL fragment, which the browser keeps out of normal HTTP request URLs. Dashboard shortcuts store the management links in that browser. Use a trusted browser profile, save a backup of each private management link, and remove shortcuts on shared devices. The MVP does not have account recovery or a key rotation screen.
 - Set the optional `DSURVEY_CREATOR_KEY` hosting secret to limit creation on a public instance. Respondents never need it. For a public rollout, configure traffic limits for submission and creation routes based on expected volume. Anonymous submissions may include duplicates.
 - Use HTTPS, restrict account and database permissions, and decide how long to retain responses and exported reports. Store exports where only authorized owners can read them. Configure backups for your deployment and document their retention, since deleting a live response does not erase existing exports or backups.

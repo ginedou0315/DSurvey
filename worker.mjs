@@ -39,7 +39,14 @@ function definition(input, previous) {
   });
   const archived = [...old.values()].filter(f=>!used.has(f.id));
   if(archived.length>100) fail('This form has reached its archived-question limit.');
-  return {title,description:str(input.description,2000),open:input.open!==false,fields,archived,revision:(previous?.revision||0)+1};
+  const visibility = input.visibility ?? previous?.visibility ?? (previous ? 'private' : 'public');
+  if(!['public','private'].includes(visibility)) fail('Choose who can respond.');
+  const invite = visibility==='private' ? previous?.invite || token() : undefined;
+  return {title,description:str(input.description,2000),open:input.open!==false,visibility,invite,fields,archived,revision:(previous?.revision||0)+1};
+}
+function requireRespondent(req,form) {
+  if(form.visibility==='public') return;
+  if(!form.invite || req.headers.get('X-DSurvey-Invite')!==form.invite) fail('Ask the form owner for an active respondent invite link.',403);
 }
 function validate(input,form) {
   if(input.revision!==form.revision) fail('The form changed. Reload the page and try again.',409);
@@ -110,10 +117,12 @@ export default {async fetch(req,env) {
       }
     }
     if(!action && req.method==='GET') {
-      const {archived,...publicForm}=form;
+      requireRespondent(req,form);
+      const {archived,invite,...publicForm}=form;
       return json(publicForm);
     }
     if(action==='responses' && req.method==='POST') {
+      requireRespondent(req,form);
       if(!form.open) fail('This form is closed.',409);
       const answers=validate(await body(req),form);
       const result=await db.prepare('INSERT INTO responses (survey_id, submitted, answers) SELECT id, ?, ? FROM surveys WHERE id=? AND definition=?').bind(new Date().toISOString(),JSON.stringify(answers),id,row.definition).run();
