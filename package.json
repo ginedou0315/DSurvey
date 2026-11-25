@@ -1,1 +1,1 @@
-{"name":"dsurvey","private":true,"type":"module","engines":{"node":">=22.13.0"},"scripts":{"build":"node build.mjs","start":"node build.mjs && node local.mjs"}}
+{"name":"dsurvey","private":true,"type":"module","engines":{"node":">=22.13.0"},"scripts":{"build":"node build.mjs","start":"node build.mjs && node local.mjs"},"dependencies":{"@netlify/database":"^2.0.4","drizzle-orm":"^1.0.0-beta.22"},"devDependencies":{"drizzle-kit":"^1.0.0-beta.22"}}
