@@ -18,6 +18,10 @@ Open [http://127.0.0.1:8787](http://127.0.0.1:8787). There are no packages to in
 4. Use **Responses** for totals, answers per question, dropdown counts, and the response table. Download a workbook with **Responses** and **Summary** sheets or a paginated PDF with both. The PDF uses rendered pages and preserves characters supported by the device fonts. Its text is image-based.
 5. To stop collection, turn off **Accept responses** in **Build** and save. You can delete individual submissions from the response table. Removed questions remain in the response history and downloads. Create a new question when its meaning changes so historical answers stay under their original heading.
 
+## Deploy on Netlify
+
+The repository includes a Netlify configuration. Netlify runs `npm run build`, then serves the app from a Netlify Server (`netlify/server/index.mjs`) and stores forms and responses in Netlify Database (Postgres). Migrations in `netlify/database/migrations/` are applied automatically on deploy. To restrict who can create forms, set a `DSURVEY_CREATOR_KEY` environment variable in the Netlify project settings.
+
 ## Deploy for people outside your computer
 
 Use one Cloudflare Worker for the website and API and one Cloudflare D1 database for durable forms and responses. Workers and D1 offer free allowances suitable for a small pilot. Check the [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/) pages for current usage limits. Excel and PDF generation happen in the owner's browser.
