@@ -20,7 +20,7 @@ Open [http://127.0.0.1:8787](http://127.0.0.1:8787). There are no packages to in
 
 ## Deploy for people outside your computer
 
-Use one Cloudflare Worker for the website and API and one Cloudflare D1 database for durable forms and responses. Workers and D1 offer free allowances suitable for a small pilot. Check the [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/) pages for current usage limits. Excel and PDF generation happen in the owner's browser. 
+Use one Cloudflare Worker for the website and API and one Cloudflare D1 database for durable forms and responses. Workers and D1 offer free allowances suitable for a small pilot. Check the [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/) pages for current usage limits. Excel and PDF generation happen in the owner's browser.
 
 ### Deploy to your Cloudflare account
 
